@@ -1,0 +1,17 @@
+[Unit]
+Description=Kalpana RIF API Server
+After=network.target kalpana-cpp.service
+Wants=kalpana-cpp.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu
+Environment="MODEL_ID=meta-llama/Llama-3.2-3B-Instruct"
+Environment="RIF_BANDS=2048"
+Environment="RIF_KAPPA=10.0"
+ExecStart=/home/ubuntu/.local/bin/uvicorn api_server:app --host 0.0.0.0 --port 8000 --workers 1
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

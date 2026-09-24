@@ -1,0 +1,52 @@
+{
+  "name": "kalpana-ide",
+  "displayName": "Kalpana AI",
+  "description": "Infinite Context Local Code Assistant",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Machine Learning"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kalpana.start",
+        "title": "Start Kalpana Engine"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kalpana-explorer",
+          "title": "Kalpana",
+          "icon": "$(hubot)"
+        }
+      ]
+    },
+    "views": {
+      "kalpana-explorer": [
+        {
+          "type": "webview",
+          "id": "kalpanaChatView",
+          "name": "Kalpana Infinite Context"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^18.x",
+    "typescript": "^5.x"
+  }
+}
