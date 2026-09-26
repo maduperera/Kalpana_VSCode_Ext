@@ -11,5 +11,6 @@ kalpana-engine/core.c
 kalpana-engine/setup_cython.py
 kalpana-engine/build_protected_engine.sh
 kalpana-engine/build/**
+kalpana-engine/dist/**
 kalpana-engine/venv/**
 kalpana-engine/*.spec
