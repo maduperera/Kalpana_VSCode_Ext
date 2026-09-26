@@ -125,14 +125,6 @@ $$A_{\text{RIF}} = \text{Softmax}\left( \frac{\mathcal{F}(Q) \cdot \Phi^\dagger}
 
 This guarantees strict $\mathcal{O}(1)$ memory bounds regardless of context window length.
 
-<p align="center">
-  <img src="assets/kalpana_architecture_diagram.png" alt="Kalpana Architecture Diagram" width="850"/>
-</p>
-
-<p align="center">
-  <img src="assets/rif_figure2.png" alt="RIF Theoretical Diagram" width="850"/>
-</p>
-
 ---
 
 ## 🔬 Empirical Benchmark Results
