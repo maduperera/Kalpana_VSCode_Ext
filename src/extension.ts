@@ -36,12 +36,17 @@ function startEngines(context: vscode.ExtensionContext) {
     // --- STEP 1: Launch Kalpana Python API (RIF State Manager) ---
     const pythonBinary = isWindows ? 'kalpana-engine-win.exe' : 'kalpana-engine-mac';
     const pythonBinaryPath = path.join(context.extensionPath, 'kalpana-engine', 'dist', pythonBinary);
+    const apiServerPath = path.join(context.extensionPath, 'kalpana-engine', 'api_server.py');
     
     if (fs.existsSync(pythonBinaryPath)) {
         engineProcess = child_process.spawn(pythonBinaryPath, [], { cwd: context.extensionPath });
         engineProcess.stdout?.on('data', (data: Buffer | string) => console.log(`Kalpana API: ${data}`));
+    } else if (fs.existsSync(apiServerPath)) {
+        const pythonExec = isWindows ? 'python' : 'python3';
+        engineProcess = child_process.spawn(pythonExec, [apiServerPath], { cwd: context.extensionPath });
+        engineProcess.stdout?.on('data', (data: Buffer | string) => console.log(`Kalpana API: ${data}`));
     } else {
-        vscode.window.showWarningMessage('Kalpana RIF binary not found. Run the PyInstaller build step.');
+        vscode.window.showWarningMessage('Kalpana RIF Engine server not found.');
     }
 
     // --- STEP 2: Launch Llama.cpp backend (The Text Generator) ---

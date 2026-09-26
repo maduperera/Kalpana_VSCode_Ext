@@ -34,7 +34,7 @@ Kalpanā eliminates this bottleneck using proprietary **Resonant Interference Fi
 ---
 
 ### Step 2: Open the Kalpanā Sidebar & Start the Engine
-1. Click the **Kalpanā AI** icon (`🤖`) on the VS Code Activity Bar (left sidebar).
+1. Click the **Kalpanā AI** icon on the VS Code Activity Bar (left sidebar). Look for the official Kalpanā logo icon.
 2. Alternatively, press `Cmd + Shift + P` (or `Ctrl + Shift + P`) to open the Command Palette, type **`Kalpana: Start Engine`**, and press Enter.
 3. The extension initializes the local engine and prepares the 48 MB attention phase state.
 
