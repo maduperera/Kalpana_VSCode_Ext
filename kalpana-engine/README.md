@@ -115,16 +115,6 @@ flowchart LR
     Router -->|"Attach O(1) RIF Telemetry"| Client
     Router --- RIFTracker
 ```
-
-### Core Mathematical Attention Formulation
-Unlike traditional attention that materializes unbounded Key-Value pairs $\mathcal{O}(N)$ into VRAM, Kalpanā RIF continuously updates a fixed Fourier harmonic phase accumulator:
-
-$$\Phi_{\tau+1} = \Phi_\tau \cdot e^{-i \omega} + \kappa \cdot X$$
-
-$$A_{\text{RIF}} = \text{Softmax}\left( \frac{\mathcal{F}(Q) \cdot \Phi^\dagger}{\sqrt{d_k}} \right)$$
-
-This guarantees strict $\mathcal{O}(1)$ memory bounds regardless of context window length.
-
 ---
 
 ## 🔬 Empirical Benchmark Results
