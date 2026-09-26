@@ -146,20 +146,25 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
         <head>
             <style>
                 body { font-family: var(--vscode-font-family); padding: 10px; color: var(--vscode-foreground); }
-                #chat-box { height: 380px; overflow-y: auto; border: 1px solid var(--vscode-panel-border); padding: 10px; margin-bottom: 10px; border-radius: 6px; background: rgba(0,0,0,0.1); }
-                .message { margin-bottom: 12px; font-size: 13px; line-height: 1.5; }
-                .user-message { color: var(--vscode-terminal-ansiCyan); border-bottom: 1px dashed var(--vscode-panel-border); padding-bottom: 6px; }
-                .ai-message { color: var(--vscode-foreground); background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; border-left: 3px solid var(--vscode-terminal-ansiGreen); }
-                input { width: 100%; padding: 10px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 6px; box-sizing: border-box; }
+                #chat-box { height: 420px; overflow-y: auto; border: 1px solid var(--vscode-panel-border); padding: 12px; margin-bottom: 10px; border-radius: 8px; background: rgba(0,0,0,0.15); }
+                .message { margin-bottom: 14px; font-size: 13px; line-height: 1.6; word-wrap: break-word; }
+                .user-message { color: var(--vscode-terminal-ansiCyan); border-bottom: 1px dashed var(--vscode-panel-border); padding-bottom: 8px; }
+                .ai-message { color: var(--vscode-foreground); background: rgba(255,255,255,0.04); padding: 10px 12px; border-radius: 8px; border-left: 3px solid #34d399; }
+                input { width: 100%; padding: 10px 12px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 6px; box-sizing: border-box; }
                 input:focus { outline: 1px solid var(--vscode-focusBorder); }
-                .telemetry-badges { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
-                .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: var(--vscode-terminal-ansiCyan); }
+                .telemetry-badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+                .badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: var(--vscode-terminal-ansiCyan); }
+                pre { background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; overflow-x: auto; font-family: monospace; }
+                code { font-family: monospace; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px; }
             </style>
         </head>
         <body>
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-                <h3 style="margin:0;">Kalpana AI</h3>
-                <span style="font-size:10px; opacity:0.7; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">Qwen 2.5 Coder + RIF</span>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 style="margin:0; font-size:15px; color:#38bdf8;">Kalpana AI</h3>
+                    <span style="font-size:10px; opacity:0.8; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">Qwen 2.5 Coder + RIF</span>
+                </div>
+                <span style="font-size:10px; color:#34d399;">O(1) Active</span>
             </div>
             <div id="chat-box"></div>
             <input type="text" id="question-input" placeholder="Ask Kalpana AI about your codebase..." />
@@ -167,17 +172,40 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                 const vscode = acquireVsCodeApi();
                 const input = document.getElementById('question-input');
                 const chatBox = document.getElementById('chat-box');
+
+                function formatMarkdown(text) {
+                    if (!text) return '';
+                    let html = text
+                        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                        .replace(/\\*\\*(.*?)\\*\\*/g, '<b>$1</b>')
+                        .replace(/\\*(.*?)\\*/g, '<i>$1</i>')
+                        .replace(/\`\`\`([\\s\\S]*?)\`\`\`/g, '<pre><code>$1</code></pre>')
+                        .replace(/\`([^\`]+)\`/g, '<code>$1</code>')
+                        .replace(/\\n/g, '<br/>');
+                    return html;
+                }
+
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter' && input.value.trim() !== '') {
-                        chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${input.value}</div>\`;
-                        vscode.postMessage({ type: 'askQuestion', value: input.value });
+                        const val = input.value;
+                        chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${formatMarkdown(val)}</div>\`;
+                        vscode.postMessage({ type: 'askQuestion', value: val });
                         input.value = '';
                         chatBox.scrollTop = chatBox.scrollHeight;
                     }
                 });
+
                 window.addEventListener('message', event => {
                     if (event.data.type === 'receiveAnswer') {
-                        chatBox.innerHTML += \`<div class="message ai-message"><b>Kalpana AI:</b> \${event.data.value}</div>\`;
+                        const raw = event.data.value;
+                        let formatted = raw;
+                        if (raw.indexOf('<div class="telemetry-badges">') !== -1) {
+                            const parts = raw.split('<div class="telemetry-badges">');
+                            formatted = formatMarkdown(parts[0]) + '<div class="telemetry-badges">' + parts[1];
+                        } else {
+                            formatted = formatMarkdown(raw);
+                        }
+                        chatBox.innerHTML += \`<div class="message ai-message"><b>Kalpana AI:</b><br/>\${formatted}</div>\`;
                         chatBox.scrollTop = chatBox.scrollHeight;
                     }
                 });

@@ -3,7 +3,7 @@
   "displayName": "Kalpana AI",
   "publisher": "madushaperera",
   "description": "Infinite Context Local Code Assistant powered by Qwen 2.5 Coder & Kalpana RIF by Vijñāna AI",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "icon": "media/icon.png",
   "repository": {
     "type": "git",

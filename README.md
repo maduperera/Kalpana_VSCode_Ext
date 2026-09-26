@@ -93,5 +93,5 @@ Captured locally comparing **Standard Qwen 2.5 Coder (Traditional Dynamic KV Cac
 
 ## 🏢 About Vijñāna AI
 
-**Kalpanā AI** is developed by **Vijñāna AI** ([vijñānaai.com](https://vijñānaai.com)).  
+**Kalpanā AI** is developed by **Vijñāna AI**.  
 **Copyright © 2026 Vijñāna AI.** All rights reserved.
