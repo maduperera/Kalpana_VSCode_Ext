@@ -19,3 +19,4 @@ kalpana-engine/core.py
 .DS_Store
 *.log
 .env
+*.vsix
