@@ -24,6 +24,12 @@ export function activate(context: vscode.ExtensionContext) {
         startEngines(context);
     });
     context.subscriptions.push(startCmd);
+
+    // 4. Register a command to focus/open the Kalpana Chat View
+    let openCmd = vscode.commands.registerCommand('kalpana.openView', () => {
+        vscode.commands.executeCommand('kalpanaChatView.focus');
+    });
+    context.subscriptions.push(openCmd);
 }
 
 function startEngines(context: vscode.ExtensionContext) {
