@@ -1,0 +1,21 @@
+# Dependencies & Build Outputs
+node_modules/
+out/
+.vscode-test/
+
+# Python Virtual Environments & PyInstaller Builds
+kalpana-engine/venv/
+kalpana-engine/build/
+kalpana-engine/__pycache__/
+kalpana-engine/core.c
+kalpana-engine/*.pyc
+kalpana-engine/core.py.src_private
+kalpana-engine/dist/
+
+# PROPRIETARY SOURCE PROTECTION: Exclude raw core.py Python source
+kalpana-engine/core.py
+
+# OS & Environment
+.DS_Store
+*.log
+.env

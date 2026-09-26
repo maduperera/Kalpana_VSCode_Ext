@@ -6,6 +6,7 @@
     "lib": ["es2020", "dom"],
     "sourceMap": true,
     "rootDir": "src",
-    "strict": true
+    "strict": true,
+    "types": ["node", "vscode"]
   }
 }

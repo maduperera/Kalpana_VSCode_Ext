@@ -1,0 +1,15 @@
+.vscode/**
+.git/**
+src/**
+node_modules/**
+tsconfig.json
+*.map
+
+# Exclude raw Python source code and build scripts from extension bundle
+kalpana-engine/core.py
+kalpana-engine/core.c
+kalpana-engine/setup_cython.py
+kalpana-engine/build_protected_engine.sh
+kalpana-engine/build/**
+kalpana-engine/venv/**
+kalpana-engine/*.spec

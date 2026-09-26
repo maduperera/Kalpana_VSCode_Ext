@@ -1,14 +1,17 @@
 import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
 
 let engineProcess: child_process.ChildProcess | undefined;
+let llamaProcess: child_process.ChildProcess | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Kalpana IDE backend is now active.');
 
-    // 1. Start the Kalpana compiled binary automatically
-    startKalpanaEngine(context);
+    // 1. Start the backend engines (Llama.cpp + Kalpana RIF)
+    startEngines(context);
 
     // 2. Register the Sidebar Chat Webview
     const provider = new KalpanaChatViewProvider(context.extensionUri);
@@ -16,75 +19,67 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider('kalpanaChatView', provider)
     );
 
-    // 3. Register a command to manually restart the engine
+    // 3. Register a command to manually restart the engines
     let startCmd = vscode.commands.registerCommand('kalpana.start', () => {
-        startKalpanaEngine(context);
+        startEngines(context);
     });
     context.subscriptions.push(startCmd);
 }
 
-function startKalpanaEngine(context: vscode.ExtensionContext) {
-    if (engineProcess) {
-        engineProcess.kill();
+function startEngines(context: vscode.ExtensionContext) {
+    if (engineProcess) engineProcess.kill();
+    if (llamaProcess) llamaProcess.kill();
+
+    const isWindows = process.platform === 'win32';
+    const isMac = process.platform === 'darwin';
+
+    // --- STEP 1: Launch Kalpana Python API (RIF State Manager) ---
+    const pythonBinary = isWindows ? 'kalpana-engine-win.exe' : 'kalpana-engine-mac';
+    const pythonBinaryPath = path.join(context.extensionPath, 'kalpana-engine', 'dist', pythonBinary);
+    
+    if (fs.existsSync(pythonBinaryPath)) {
+        engineProcess = child_process.spawn(pythonBinaryPath, [], { cwd: context.extensionPath });
+        engineProcess.stdout?.on('data', (data: Buffer | string) => console.log(`Kalpana API: ${data}`));
+    } else {
+        vscode.window.showWarningMessage('Kalpana RIF binary not found. Run the PyInstaller build step.');
     }
 
-    // Determine the binary path based on the OS
-    const isWindows = process.platform === 'win32';
-    // For local development, pointing to the dist folder. In production, this would be bundled.
-    const binaryName = isWindows ? 'kalpana-engine-win.exe' : 'kalpana-engine-mac';
-    const binaryPath = path.join(context.extensionPath, 'kalpana-engine', 'dist', binaryName);
+    // --- STEP 2: Launch Llama.cpp backend (The Text Generator) ---
+    // In production, the extension will download the pre-compiled llama-server for Win/Mac.
+    // We assume it's downloaded to an 'inference' folder.
+    const llamaBinary = isWindows ? 'llama-server.exe' : 'llama-server';
+    const llamaPath = path.join(context.extensionPath, 'inference', llamaBinary);
+    const modelPath = path.join(context.extensionPath, 'models', 'Qwen-2.5-Coder-7B-Q4.gguf');
 
-    console.log(`Starting Kalpana Engine from: ${binaryPath}`);
+    if (fs.existsSync(llamaPath) && fs.existsSync(modelPath)) {
+        llamaProcess = child_process.spawn(llamaPath, [
+            '-m', modelPath,
+            '--host', '127.0.0.1',
+            '--port', '8081',
+            '-c', '4096' // Standard context fallback
+        ], { cwd: context.extensionPath });
+        llamaProcess.stdout?.on('data', (data: Buffer | string) => console.log(`Llama.cpp: ${data}`));
+    } else {
+        console.log('Llama.cpp binary or model not found yet. Ready for download phase.');
+    }
     
-    // Spawn the binary
-    engineProcess = child_process.spawn(binaryPath, [], {
-        cwd: context.extensionPath
-    });
-
-    engineProcess.stdout?.on('data', (data) => {
-        console.log(`Kalpana Engine: ${data}`);
-    });
-
-    engineProcess.stderr?.on('data', (data) => {
-        console.error(`Kalpana Engine Error: ${data}`);
-    });
-
-    engineProcess.on('close', (code) => {
-        console.log(`Kalpana Engine exited with code ${code}`);
-    });
-    
-    vscode.window.showInformationMessage('Kalpana Engine (O(1) memory) started locally!');
+    vscode.window.showInformationMessage('Kalpana Backend initialized locally.');
 }
 
 class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
-    public resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        context: vscode.WebviewViewResolveContext,
-        _token: vscode.CancellationToken,
-    ) {
-        webviewView.webview.options = {
-            enableScripts: true,
-        };
-
+    public resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext) {
+        webviewView.webview.options = { enableScripts: true };
         webviewView.webview.html = this._getHtmlForWebview();
         
-        // Listen to messages from the chat UI
-        webviewView.webview.onDidReceiveMessage(async (data) => {
-            switch (data.type) {
-                case 'askQuestion':
-                    {
-                        // In the future: We will send this query to localhost:8000/v1/chat/completions
-                        vscode.window.showInformationMessage(`Kalpana received: ${data.value}`);
-                        
-                        // Send mock response back to UI
-                        webviewView.webview.postMessage({
-                            type: 'receiveAnswer',
-                            value: `This is Kalpana answering from the O(1) memory field! (You asked: ${data.value})`
-                        });
-                        break;
-                    }
+        webviewView.webview.onDidReceiveMessage(async (data: any) => {
+            if (data.type === 'askQuestion') {
+                // Here we will eventually send the query to http://127.0.0.1:8000/v1/chat/completions
+                webviewView.webview.postMessage({
+                    type: 'receiveAnswer',
+                    value: `Processing via O(1) Memory Engine: ${data.value}`
+                });
             }
         });
     }
@@ -93,42 +88,33 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Kalpana Chat</title>
             <style>
                 body { font-family: var(--vscode-font-family); padding: 10px; color: var(--vscode-foreground); }
-                #chat-box { height: 300px; overflow-y: auto; border: 1px solid var(--vscode-panel-border); padding: 5px; margin-bottom: 10px; }
-                .message { margin-bottom: 8px; }
+                #chat-box { height: 350px; overflow-y: auto; border: 1px solid var(--vscode-panel-border); padding: 5px; margin-bottom: 10px; }
+                .message { margin-bottom: 8px; font-size: 13px; }
                 .user-message { color: var(--vscode-terminal-ansiCyan); }
                 .ai-message { color: var(--vscode-terminal-ansiGreen); }
                 input { width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
             </style>
         </head>
         <body>
-            <h3>Kalpana RIF Chat</h3>
-            <p style="font-size: 10px; color: gray;">Memory: O(1) Bounded State</p>
+            <h3>Kalpana (Qwen-7B RIF)</h3>
             <div id="chat-box"></div>
-            <input type="text" id="question-input" placeholder="Ask about your massive codebase..." />
-            
+            <input type="text" id="question-input" placeholder="Ask about your workspace..." />
             <script>
                 const vscode = acquireVsCodeApi();
                 const input = document.getElementById('question-input');
                 const chatBox = document.getElementById('chat-box');
-
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        const text = input.value;
-                        chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${text}</div>\`;
-                        vscode.postMessage({ type: 'askQuestion', value: text });
+                        chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${input.value}</div>\`;
+                        vscode.postMessage({ type: 'askQuestion', value: input.value });
                         input.value = '';
                     }
                 });
-
                 window.addEventListener('message', event => {
-                    const message = event.data;
-                    if (message.type === 'receiveAnswer') {
-                        chatBox.innerHTML += \`<div class="message ai-message"><b>Kalpana:</b> \${message.value}</div>\`;
+                    if (event.data.type === 'receiveAnswer') {
+                        chatBox.innerHTML += \`<div class="message ai-message"><b>Kalpana:</b> \${event.data.value}</div>\`;
                         chatBox.scrollTop = chatBox.scrollHeight;
                     }
                 });
@@ -139,7 +125,6 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
 }
 
 export function deactivate() {
-    if (engineProcess) {
-        engineProcess.kill();
-    }
+    if (engineProcess) engineProcess.kill();
+    if (llamaProcess) llamaProcess.kill();
 }

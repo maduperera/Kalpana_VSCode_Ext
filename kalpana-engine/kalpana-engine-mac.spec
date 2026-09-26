@@ -1,18 +1,23 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
+import glob
+
+so_files = glob.glob('core*.so') + glob.glob('core*.pyd')
+binaries_list = [(f, '.') for f in so_files]
+
 a = Analysis(
     ['api_server.py'],
-    pathex=[],
-    binaries=[],
+    pathex=['.'],
+    binaries=binaries_list,
     datas=[],
-    hiddenimports=[],
+    hiddenimports=['torch', 'fastapi', 'pydantic', 'httpx'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['core', 'matplotlib', 'PIL', 'sympy', 'boto', 'locket', 'sklearn', 'scipy', 'PyQt5', 'tkinter', 'nltk', 'pandas', 'cv2', 'gevent', 'zope', 'keyring', 'bokeh', 'transformers', 'datasets', 'tensorflow'],
     noarchive=False,
-    optimize=0,
+    optimize=2,
 )
 pyz = PYZ(a.pure)
 
