@@ -8,11 +8,11 @@
 We have provisioned your dedicated API access for testing the Kalpanā LLM Core engine with True O(1) Continuous Fourier Phase Attention (Resonant Interference Field — 48 MB constant memory state, 0 MB dynamic KV cache).
 
 ### API Configuration
-- **Base URL:** `http://129.146.20.101:8000/v1`
+- **Base URL:** `http://127.0.0.1:8000/v1`
 - **API Key:** `Bearer kalpana-sk-beta-eval`
 - **Model Name:** `kalpana-llama` (or `Llama-3.2-3B-Instruct`)
-- **Interactive Swagger Docs:** `http://129.146.20.101:8000/docs`
-- **Live Web Playground:** `http://129.146.20.101:8000/`
+- **Interactive Swagger Docs:** `http://127.0.0.1:8000/docs`
+- **Live Web Playground:** `http://127.0.0.1:8000/`
 
 ---
 
@@ -24,7 +24,7 @@ from openai import OpenAI
 
 # Initialize client pointing to Kalpanā LLM
 client = OpenAI(
-    base_url="http://129.146.20.101:8000/v1",
+    base_url="http://127.0.0.1:8000/v1",
     api_key="kalpana-sk-beta-eval"
 )
 
@@ -48,7 +48,7 @@ print()
 
 ### Quick cURL Test
 ```bash
-curl -X POST "http://129.146.20.101:8000/v1/chat/completions" \
+curl -X POST "http://127.0.0.1:8000/v1/chat/completions" \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer kalpana-sk-beta-eval" \
      -d '{

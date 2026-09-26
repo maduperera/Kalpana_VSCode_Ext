@@ -588,7 +588,7 @@ async def landing_page():
         <pre>from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://129.146.20.101:8000/v1",
+    base_url="http://127.0.0.1:8000/v1",
     api_key="kalpana-sk-beta-eval"
 )
 
@@ -603,7 +603,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)</pre>
       </div>
       <div id="tab-curl" class="tab-content" style="display:none;">
-        <pre>curl -X POST "http://129.146.20.101:8000/v1/chat/completions" \\
+        <pre>curl -X POST "http://127.0.0.1:8000/v1/chat/completions" \\
      -H "Content-Type: application/json" \\
      -H "Authorization: Bearer kalpana-sk-beta-eval" \\
      -d '{

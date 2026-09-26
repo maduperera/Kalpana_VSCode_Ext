@@ -2,7 +2,7 @@ import time
 import requests
 import json
 
-BASE_URL = "http://129.146.20.101:8000/v1"
+BASE_URL = "http://127.0.0.1:8000/v1"
 API_KEY = "kalpana-sk-beta-eval"
 
 headers = {
