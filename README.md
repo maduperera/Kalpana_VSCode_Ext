@@ -1,10 +1,16 @@
 # ⚡ Kalpanā AI — Infinite-Context Local Code Assistant for VS Code
 
-> **The first Visual Studio Code assistant powered by Kalpanā Resonant Interference Field (RIF™) technology.**  
-> **Strict 48 MB Attention State • Zero Dynamic Memory Growth • 100% Local Privacy.**
+<p align="center">
+  <img src="icon.png" alt="Kalpanā AI Logo" width="160"/>
+</p>
 
 <p align="center">
-  <img src="images/kalpana_vscode_ui_mockup.png" alt="Kalpanā AI VS Code Interface" width="850"/>
+  <strong>The first Visual Studio Code assistant powered by Kalpanā Resonant Interference Field (RIF™) technology.</strong><br>
+  <em>Strict 48 MB Attention State • Zero Dynamic Memory Growth • 100% Local Privacy.</em>
+</p>
+
+<p align="center">
+  <img src="images/kalpana_official_vscode_ui.png" alt="Kalpanā AI VS Code Interface" width="850"/>
 </p>
 
 ---
@@ -14,6 +20,42 @@
 **Kalpanā AI** is a next-generation AI coding assistant built for Visual Studio Code. Traditional AI extensions slow down or crash your computer when working with large codebases because their memory consumption scales linearly $\mathcal{O}(N)$ with project size.
 
 Kalpanā eliminates this bottleneck using proprietary **Resonant Interference Field (RIF™)** technology. Instead of storing massive token histories in RAM, Kalpanā maintains a **strict $\mathcal{O}(1)$ constant 48 MB memory footprint**—allowing you to query entire multi-file codebases effortlessly on standard developer laptops without memory slowdowns or out-of-memory (OOM) crashes.
+
+---
+
+## 📖 How to Use Kalpanā AI in VS Code (Step-by-Step)
+
+### Step 1: Install the Extension
+1. Open Visual Studio Code.
+2. Open the Extensions sidebar (`Cmd + Shift + X` on macOS or `Ctrl + Shift + X` on Windows/Linux).
+3. Search for **`Kalpana AI`** (published by `madushaperera`).
+4. Click **Install**.
+
+---
+
+### Step 2: Open the Kalpanā Sidebar & Start the Engine
+1. Click the **Kalpanā AI** icon (`🤖`) on the VS Code Activity Bar (left sidebar).
+2. Alternatively, press `Cmd + Shift + P` (or `Ctrl + Shift + P`) to open the Command Palette, type **`Kalpana: Start Engine`**, and press Enter.
+3. The extension initializes the local engine and prepares the 48 MB attention phase state.
+
+---
+
+### Step 3: Query Your Codebase & Ingest Context
+1. Open any project workspace folder in VS Code.
+2. In the Kalpanā sidebar chat box, type your query or instruction:
+   - *"Explain the memory management architecture of this codebase."*
+   - *"Find potential bugs or unhandled edge cases in this workspace."*
+   - *"Refactor the active function to improve performance."*
+3. Kalpanā AI automatically superimposes workspace context into its continuous 48 MB harmonic phase state and streams answers in real time.
+
+---
+
+### Step 4: Inspect Live Telemetry Badges
+Each answer from Kalpanā AI displays real-time execution telemetry tags:
+- ⏱️ **Time to First Token (TTFT)**: Measures initial response latency (~480ms).
+- 🧠 **RIF Phase State**: Locked at **48.00 MB** (constant memory footprint).
+- ⚡ **Dynamic KV Cache**: **0.00 MB** (zero RAM growth).
+- 📉 **Complexity**: **$\mathcal{O}(1)$ Constant**.
 
 ---
 
@@ -37,33 +79,10 @@ Captured locally comparing **Standard Qwen-2.5-Coder (Traditional Dynamic KV Cac
 
 ---
 
-## 📖 How to Use Kalpanā AI in VS Code
+## 🔒 Security & Privacy
 
-### Step 1: Open the Kalpanā Sidebar
-- Click the **Kalpanā AI** icon (`🤖`) on the VS Code Activity Bar sidebar (left panel).
-
-### Step 2: Ingest Your Workspace Context
-- Type any question about your open project (e.g., *"Summarize the architectural memory scaling in this project"*).
-- Kalpanā AI automatically superimposes workspace file context into its 48 MB phase memory state.
-
-### Step 3: Ask Complex Code Questions
-- Request code refactorings, bug fixes, function explanations, or multi-file architectural analysis.
-- Live telemetry tags at the bottom of each answer display real-time latency (`TTFT`), `RIF Phase State (48 MB)`, and `Dynamic KV Cache (0.00 MB)`.
-
----
-
-## 🚀 Installation Guide
-
-### Option A: Install from VS Code Marketplace (1-Click)
-1. Open VS Code.
-2. Go to **Extensions** (`Cmd + Shift + X` / `Ctrl + Shift + X`).
-3. Search for **`Kalpana AI`** (published by `madushaperera`).
-4. Click **Install**.
-
-### Option B: Install from `.vsix` Package
-1. Download the latest `kalpana-ide-1.0.0.vsix` package.
-2. In VS Code, open **Command Palette** (`Cmd + Shift + P` / `Ctrl + Shift + P`).
-3. Select **`Extensions: Install from VSIX...`** and choose the `.vsix` file.
+- **100% On-Device Execution**: Inference runs locally on your machine. Your proprietary code and intellectual property never leave your hardware.
+- **Compiled Core Engine**: Proprietary mathematical attention algorithms are compiled into native machine code binaries.
 
 ---
 
