@@ -14,6 +14,10 @@ kalpana-engine/dist/
 
 # PROPRIETARY SOURCE PROTECTION: Exclude raw core.py Python source
 kalpana-engine/core.py
+kalpana-engine/kalpana/core.py
+kalpana-engine/kalpana/integrations.py
+kalpana-engine/kalpana/*.c
+
 
 # OS & Environment
 .DS_Store

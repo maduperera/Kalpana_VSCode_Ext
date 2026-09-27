@@ -8,9 +8,13 @@ tsconfig.json
 # Exclude raw Python source code and build scripts from extension bundle
 kalpana-engine/core.py
 kalpana-engine/core.c
+kalpana-engine/kalpana/core.py
+kalpana-engine/kalpana/integrations.py
+kalpana-engine/kalpana/*.c
 kalpana-engine/setup_cython.py
 kalpana-engine/build_protected_engine.sh
 kalpana-engine/build/**
 kalpana-engine/dist/**
 kalpana-engine/venv/**
 kalpana-engine/*.spec
+
