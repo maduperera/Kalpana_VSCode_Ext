@@ -133,7 +133,7 @@ def _preload_qwen_model():
         from transformers import AutoModelForCausalLM, AutoTokenizer
         local_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
         _LOCAL_TOKENIZER = AutoTokenizer.from_pretrained(local_model_name)
-        _LOCAL_MODEL = AutoModelForCausalLM.from_pretrained(local_model_name, dtype=torch.float32)
+        _LOCAL_MODEL = AutoModelForCausalLM.from_pretrained(local_model_name)
         print("✅ Local Qwen 2.5 neural model preloaded successfully into RAM.")
     except Exception as e:
         print(f"Background model preloader status: {e}")
@@ -311,9 +311,15 @@ async def chat_completions(req: ChatCompletionRequest, auth_user: str = Depends(
             if '_LOCAL_MODEL' not in globals() or _LOCAL_MODEL is None:
                 local_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
                 _LOCAL_TOKENIZER = AutoTokenizer.from_pretrained(local_model_name)
-                _LOCAL_MODEL = AutoModelForCausalLM.from_pretrained(local_model_name, dtype=torch.float32)
+                _LOCAL_MODEL = AutoModelForCausalLM.from_pretrained(local_model_name)
 
-            prompt = f"<|im_start|>system\nYou are Kalpana AI, an expert code assistant powered by Qwen 2.5 Coder & Kalpana RIF O(1) attention.<|im_end|>\n<|im_start|>user\n{msg}<|im_end|>\n<|im_start|>assistant\n"
+            prompt = (
+                f"<|im_start|>system\n"
+                f"You are Kalpanā AI, an expert code assistant powered by Qwen 2.5 Coder & Kalpana RIF O(1) attention. "
+                f"Provide clear, accurate, concise, and helpful technical answers explaining code or answering user questions.<|im_end|>\n"
+                f"<|im_start|>user\n{msg}<|im_end|>\n"
+                f"<|im_start|>assistant\n"
+            )
             inputs = _LOCAL_TOKENIZER(prompt, return_tensors="pt")
 
             # Generate real neural LLM output tokens (768 token limit to prevent premature cutoff)
@@ -326,20 +332,16 @@ async def chat_completions(req: ChatCompletionRequest, auth_user: str = Depends(
             )
             return _LOCAL_TOKENIZER.decode(out[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
 
+        gen_error = None
         import asyncio
         try:
             model_resp_text = await asyncio.to_thread(_generate_qwen_response, user_msg)
         except Exception as e:
+            gen_error = str(e)
             print(f"Local Qwen generation error: {e}")
 
         if not model_resp_text:
-            model_resp_text = (
-                f"⚡ **Kalpanā AI (Qwen 2.5 Coder + RIF Phase Attention)**:\n\n"
-                f"Analyzed workspace context for prompt: *\"{user_msg}\"*\n\n"
-                f"• **Workspace State**: Ingested **{rif_engine.total_tokens} tokens** into continuous 2048-band phase accumulator.\n"
-                f"• **Memory Footprint**: Flatline locked at **48.00 MB** RAM (Saved ~{(max(rif_engine.total_tokens, 1000) * 0.05):.1f} MB vs traditional LLM KV cache).\n"
-                f"• **Complexity**: Strict **O(1)** constant scaling."
-            )
+            model_resp_text = f"⚠️ **Kalpanā Engine Notice**: Unable to generate neural completion ({gen_error or 'No response returned'}). Please check local model status."
 
         data = {
             "id": f"chatcmpl-kalpana-{int(time.time())}",
