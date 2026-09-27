@@ -261,7 +261,7 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
         }
 
         if (codeContent && codeContent.trim().length > 0) {
-            const promptText = codeContent.length > 15000 ? codeContent.substring(0, 15000) + "\n...[truncated]" : codeContent;
+            const promptText = codeContent.length > 4000 ? codeContent.substring(0, 4000) + "\n...[truncated for fast local prefill]" : codeContent;
             return `Active Workspace Code File: '${fileName}'\nCode Content:\n\`\`\`\n${promptText}\n\`\`\`\n\nUser Question: ${userQuery}`;
         }
 
