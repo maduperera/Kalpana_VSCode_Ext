@@ -130,6 +130,7 @@ def _preload_qwen_model():
     try:
         global _LOCAL_MODEL, _LOCAL_TOKENIZER
         import torch
+        torch.set_num_threads(os.cpu_count() or 4)
         from transformers import AutoModelForCausalLM, AutoTokenizer
         local_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
         _LOCAL_TOKENIZER = AutoTokenizer.from_pretrained(local_model_name)
@@ -306,6 +307,7 @@ async def chat_completions(req: ChatCompletionRequest, auth_user: str = Depends(
         def _generate_qwen_response(msg: str) -> str:
             global _LOCAL_MODEL, _LOCAL_TOKENIZER
             import torch
+            torch.set_num_threads(os.cpu_count() or 4)
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
             if '_LOCAL_MODEL' not in globals() or _LOCAL_MODEL is None:
