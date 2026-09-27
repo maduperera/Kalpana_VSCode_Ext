@@ -79,6 +79,7 @@ function startEngines(context: vscode.ExtensionContext) {
 
 class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
     private _activeAbortController: AbortController | undefined;
+    private _conversationHistory: Array<{ role: string; content: string }> = [];
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -95,6 +96,11 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                 return;
             }
 
+            if (data.type === 'clearHistory') {
+                this._conversationHistory = [];
+                return;
+            }
+
             if (data.type === 'askQuestion') {
                 const userQuery = data.value;
 
@@ -106,12 +112,14 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
 
                 // Robust Codebase Context Retrieval
                 let contextualPrompt = await this._getRobustCodebaseContext(userQuery);
+                this._conversationHistory.push({ role: 'user', content: contextualPrompt });
 
                 try {
                     const startTime = Date.now();
                     let ttftRecorded: number | null = null;
+                    let fullAnswerAccumulator = '';
 
-                    // Query local Kalpanā RIF Engine API with signal abort & real-time streaming support
+                    // Query local Kalpanā RIF Engine API with multi-turn history & real-time streaming
                     const response = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
                         method: 'POST',
                         headers: {
@@ -120,7 +128,7 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                         },
                         body: JSON.stringify({
                             model: 'kalpana-llama',
-                            messages: [{ role: 'user', content: contextualPrompt }],
+                            messages: this._conversationHistory,
                             max_tokens: 1536,
                             temperature: 0.7,
                             stream: true
@@ -150,6 +158,7 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                                     const chunk = JSON.parse(dataStr);
                                     const delta = chunk.choices?.[0]?.delta?.content;
                                     if (delta) {
+                                        fullAnswerAccumulator += delta;
                                         if (isFirstChunk) {
                                             ttftRecorded = Date.now() - startTime;
                                             webviewView.webview.postMessage({ type: 'streamStart' });
@@ -162,6 +171,10 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                                     }
                                 } catch (e) {}
                             }
+                        }
+
+                        if (fullAnswerAccumulator) {
+                            this._conversationHistory.push({ role: 'assistant', content: fullAnswerAccumulator });
                         }
 
                         const ttftMs = ttftRecorded !== null ? ttftRecorded : (Date.now() - startTime);
@@ -273,8 +286,13 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
         <html lang="en">
         <head>
             <style>
-                body { font-family: var(--vscode-font-family); padding: 10px; color: var(--vscode-foreground); }
-                #chat-box { height: 420px; overflow-y: auto; border: 1px solid var(--vscode-panel-border); padding: 12px; margin-bottom: 10px; border-radius: 8px; background: rgba(0,0,0,0.15); }
+                body { font-family: var(--vscode-font-family); padding: 10px; color: var(--vscode-foreground); margin:0; }
+                #header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+                .title-area { display: flex; align-items: center; gap: 8px; }
+                .header-actions { display: flex; align-items: center; gap: 6px; }
+                .clear-btn { background: rgba(255,255,255,0.08); color: var(--vscode-foreground); border: 1px solid var(--vscode-panel-border); padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: background 0.2s; }
+                .clear-btn:hover { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #f87171; }
+                #chat-box { height: 410px; overflow-y: auto; border: 1px solid var(--vscode-panel-border); padding: 12px; margin-bottom: 10px; border-radius: 8px; background: rgba(0,0,0,0.15); }
                 .message { margin-bottom: 14px; font-size: 13px; line-height: 1.6; word-wrap: break-word; }
                 .user-message { color: var(--vscode-terminal-ansiCyan); border-bottom: 1px dashed var(--vscode-panel-border); padding-bottom: 8px; }
                 .ai-message { color: var(--vscode-foreground); background: rgba(255,255,255,0.04); padding: 10px 12px; border-radius: 8px; border-left: 3px solid #34d399; }
@@ -283,8 +301,12 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                 @keyframes pulse { 0% { opacity: 0.3; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.3; transform: scale(0.9); } }
                 .stop-btn { background: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
                 .stop-btn:hover { background: #dc2626; }
-                input { width: 100%; padding: 10px 12px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 6px; box-sizing: border-box; }
+                .input-row { display: flex; gap: 6px; align-items: center; }
+                input { flex: 1; padding: 10px 12px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 6px; box-sizing: border-box; }
                 input:focus { outline: 1px solid var(--vscode-focusBorder); }
+                .mic-btn { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 9px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+                .mic-btn:hover { opacity: 0.9; }
+                .mic-active { background: #ef4444 !important; color: white !important; animation: pulse 1s infinite; }
                 .telemetry-badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
                 .badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: var(--vscode-terminal-ansiCyan); }
                 pre { background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; overflow-x: auto; font-family: monospace; }
@@ -292,19 +314,51 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
             </style>
         </head>
         <body>
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                <div style="display:flex; align-items:center; gap:8px;">
+            <div id="header">
+                <div class="title-area">
                     <h3 style="margin:0; font-size:15px; color:#38bdf8;">Kalpana AI</h3>
                     <span style="font-size:10px; opacity:0.8; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">Qwen 2.5 Coder + RIF</span>
                 </div>
-                <span style="font-size:10px; color:#34d399;">O(1) Active</span>
+                <div class="header-actions">
+                    <button class="clear-btn" onclick="clearHistory()" title="Clear Chat History">🗑️ Clear</button>
+                    <span style="font-size:10px; color:#34d399;">O(1) Active</span>
+                </div>
             </div>
             <div id="chat-box"></div>
-            <input type="text" id="question-input" placeholder="Ask Kalpana AI about your codebase..." />
+            <div class="input-row">
+                <input type="text" id="question-input" placeholder="Ask Kalpana AI about your codebase..." />
+                <button id="mic-btn" class="mic-btn" onclick="toggleVoiceInput()" title="Voice Dictation (Speech-to-Text)">🎤</button>
+            </div>
             <script>
                 const vscode = acquireVsCodeApi();
                 const input = document.getElementById('question-input');
                 const chatBox = document.getElementById('chat-box');
+                const micBtn = document.getElementById('mic-btn');
+
+                let chatHistory = [];
+                const savedState = vscode.getState();
+                if (savedState && Array.isArray(savedState.history)) {
+                    chatHistory = savedState.history;
+                    chatHistory.forEach(item => {
+                        if (item.type === 'user') {
+                            chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${item.html}</div>\`;
+                        } else if (item.type === 'ai') {
+                            chatBox.innerHTML += \`<div class="message ai-message"><b>Kalpana AI:</b><br/>\${item.html}</div>\`;
+                        }
+                    });
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+
+                function saveState() {
+                    vscode.setState({ history: chatHistory });
+                }
+
+                function clearHistory() {
+                    chatBox.innerHTML = '';
+                    chatHistory = [];
+                    saveState();
+                    vscode.postMessage({ type: 'clearHistory' });
+                }
 
                 function formatMarkdown(text) {
                     if (!text) return '';
@@ -328,10 +382,72 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                     vscode.postMessage({ type: 'stopInference' });
                 }
 
+                // --- Speech-to-Text Voice Dictation ---
+                let recognition = null;
+                let isListening = false;
+
+                function toggleVoiceInput() {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    if (!SpeechRecognition) {
+                        alert('Voice Speech-to-Text is not supported in this browser runtime.');
+                        return;
+                    }
+
+                    if (isListening && recognition) {
+                        recognition.stop();
+                        return;
+                    }
+
+                    try {
+                        recognition = new SpeechRecognition();
+                        recognition.continuous = false;
+                        recognition.interimResults = true;
+                        recognition.lang = 'en-US';
+
+                        recognition.onstart = () => {
+                            isListening = true;
+                            micBtn.classList.add('mic-active');
+                            micBtn.title = 'Listening... Click to stop';
+                        };
+
+                        recognition.onresult = (event) => {
+                            let transcript = '';
+                            for (let i = event.resultIndex; i < event.results.length; i++) {
+                                transcript += event.results[i][0].transcript;
+                            }
+                            input.value = transcript;
+                        };
+
+                        recognition.onerror = (event) => {
+                            console.log('Speech error:', event.error);
+                            stopListeningUI();
+                        };
+
+                        recognition.onend = () => {
+                            stopListeningUI();
+                        };
+
+                        recognition.start();
+                    } catch (e) {
+                        console.error(e);
+                        stopListeningUI();
+                    }
+                }
+
+                function stopListeningUI() {
+                    isListening = false;
+                    micBtn.classList.remove('mic-active');
+                    micBtn.title = 'Voice Dictation (Speech-to-Text)';
+                }
+
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter' && input.value.trim() !== '') {
                         const val = input.value;
-                        chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${formatMarkdown(val)}</div>\`;
+                        const userHtml = formatMarkdown(val);
+                        chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${userHtml}</div>\`;
+                        chatHistory.push({ type: 'user', html: userHtml });
+                        saveState();
+
                         chatBox.innerHTML += \`<div id="thinking-card" class="message ai-message thinking-message">
                             <div><span class="pulse-icon">⚡</span> <i>Kalpanā AI is reading code & reasoning...</i></div>
                             <button class="stop-btn" onclick="stopInference()">⛔ Stop</button>
@@ -374,6 +490,9 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                         if (activeStreamContainer && data.telemetry) {
                             activeStreamContainer.innerHTML += data.telemetry;
                             chatBox.scrollTop = chatBox.scrollHeight;
+                            
+                            chatHistory.push({ type: 'ai', html: formatMarkdown(currentStreamText) + data.telemetry });
+                            saveState();
                         }
                         activeStreamContainer = null;
                         activeStreamTextSpan = null;
@@ -392,6 +511,8 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                             formatted = formatMarkdown(raw);
                         }
                         chatBox.innerHTML += \`<div class="message ai-message"><b>Kalpana AI:</b><br/>\${formatted}</div>\`;
+                        chatHistory.push({ type: 'ai', html: formatted });
+                        saveState();
                         chatBox.scrollTop = chatBox.scrollHeight;
                     }
                 });
