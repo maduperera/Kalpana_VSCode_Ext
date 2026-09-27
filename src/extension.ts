@@ -287,26 +287,40 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
         <head>
             <style>
                 body { font-family: var(--vscode-font-family); padding: 10px; color: var(--vscode-foreground); margin:0; }
-                #header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+                #header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
                 .title-area { display: flex; align-items: center; gap: 8px; }
-                .header-actions { display: flex; align-items: center; gap: 6px; }
-                .clear-btn { background: rgba(255,255,255,0.08); color: var(--vscode-foreground); border: 1px solid var(--vscode-panel-border); padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: background 0.2s; }
-                .clear-btn:hover { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #f87171; }
-                #chat-box { height: 410px; overflow-y: auto; border: 1px solid var(--vscode-panel-border); padding: 12px; margin-bottom: 10px; border-radius: 8px; background: rgba(0,0,0,0.15); }
+                .header-actions { display: flex; align-items: center; gap: 4px; }
+                .icon-btn {
+                    width: 26px; height: 26px; background: transparent; border: 1px solid transparent;
+                    border-radius: 4px; color: var(--vscode-icon-foreground, #cccccc); cursor: pointer;
+                    display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s ease; padding: 0;
+                }
+                .icon-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.15); color: #ffffff; }
+                .icon-btn-danger:hover { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #f87171; }
+                .mic-active { background: rgba(239, 68, 68, 0.25) !important; border-color: #ef4444 !important; color: #ef4444 !important; animation: pulse 1s infinite; }
+                
+                #history-drawer {
+                    display: none; position: relative; background: var(--vscode-sideBar-background, rgba(0,0,0,0.3));
+                    border: 1px solid var(--vscode-panel-border); border-radius: 6px; padding: 10px; margin-bottom: 10px;
+                    max-height: 200px; overflow-y: auto;
+                }
+                .history-header { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: #94a3b8; border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 6px; margin-bottom: 8px; }
+                .history-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; background: rgba(255,255,255,0.02); margin-bottom: 4px; border: 1px solid transparent; }
+                .history-item:hover { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: #38bdf8; }
+                .history-title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+                .history-time { font-size: 10px; color: #64748b; }
+                
+                #chat-box { height: 400px; overflow-y: auto; border: 1px solid var(--vscode-panel-border); padding: 12px; margin-bottom: 10px; border-radius: 8px; background: rgba(0,0,0,0.15); }
                 .message { margin-bottom: 14px; font-size: 13px; line-height: 1.6; word-wrap: break-word; }
                 .user-message { color: var(--vscode-terminal-ansiCyan); border-bottom: 1px dashed var(--vscode-panel-border); padding-bottom: 8px; }
                 .ai-message { color: var(--vscode-foreground); background: rgba(255,255,255,0.04); padding: 10px 12px; border-radius: 8px; border-left: 3px solid #34d399; }
                 .thinking-message { border-left: 3px solid #38bdf8; color: #94a3b8; background: rgba(56, 189, 248, 0.05); display: flex; align-items: center; justify-content: space-between; }
                 .pulse-icon { display: inline-block; animation: pulse 1.2s infinite ease-in-out; color: #38bdf8; font-weight: bold; }
                 @keyframes pulse { 0% { opacity: 0.3; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.3; transform: scale(0.9); } }
-                .stop-btn { background: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
-                .stop-btn:hover { background: #dc2626; }
+                
                 .input-row { display: flex; gap: 6px; align-items: center; }
                 input { flex: 1; padding: 10px 12px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 6px; box-sizing: border-box; }
                 input:focus { outline: 1px solid var(--vscode-focusBorder); }
-                .mic-btn { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 9px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-                .mic-btn:hover { opacity: 0.9; }
-                .mic-active { background: #ef4444 !important; color: white !important; animation: pulse 1s infinite; }
                 .telemetry-badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
                 .badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: var(--vscode-terminal-ansiCyan); }
                 pre { background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; overflow-x: auto; font-family: monospace; }
@@ -316,30 +330,67 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
         <body>
             <div id="header">
                 <div class="title-area">
-                    <h3 style="margin:0; font-size:15px; color:#38bdf8;">Kalpana AI</h3>
+                    <h3 style="margin:0; font-size:14px; color:#38bdf8;">Kalpana AI</h3>
                     <span style="font-size:10px; opacity:0.8; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">Qwen 2.5 Coder + RIF</span>
                 </div>
                 <div class="header-actions">
-                    <button class="clear-btn" onclick="clearHistory()" title="Clear Chat History">🗑️ Clear</button>
-                    <span style="font-size:10px; color:#34d399;">O(1) Active</span>
+                    <button class="icon-btn" onclick="createNewChatSession()" title="New Chat (+)"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z"/></svg></button>
+                    <button class="icon-btn" onclick="toggleHistoryDrawer()" title="History Watch (Saved Conversations)"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 7 7A7.008 7.008 0 0 0 8 1zm0 12.5a5.5 5.5 0 1 1 5.5-5.5 5.506 5.506 0 0 1-5.5 5.5z"/><path d="M7.75 4a.75.75 0 0 0-.75.75v3.5c0 .2.08.39.22.53l2.5 2.5a.75.75 0 0 0 1.06-1.06L8.5 7.94V4.75A.75.75 0 0 0 7.75 4z"/></svg></button>
+                    <button class="icon-btn icon-btn-danger" onclick="clearCurrentChat()" title="Clear Current Chat"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1h2.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3h11V2h-11v1z"/></svg></button>
+                    <span style="font-size:10px; color:#34d399; margin-left:2px;">O(1) Active</span>
                 </div>
             </div>
+
+            <!-- History Watch Overlay Drawer -->
+            <div id="history-drawer">
+                <div class="history-header">
+                    <span>SAVED CONVERSATIONS HISTORY</span>
+                    <button class="icon-btn" onclick="toggleHistoryDrawer()" style="width:18px; height:18px;">✕</button>
+                </div>
+                <div id="history-list"></div>
+            </div>
+
             <div id="chat-box"></div>
             <div class="input-row">
                 <input type="text" id="question-input" placeholder="Ask Kalpana AI about your codebase..." />
-                <button id="mic-btn" class="mic-btn" onclick="toggleVoiceInput()" title="Voice Dictation (Speech-to-Text)">🎤</button>
+                <button id="mic-btn" class="icon-btn" onclick="toggleVoiceInput()" title="Voice Dictation (Speech-to-Text)">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 12a3.5 3.5 0 0 0 3.5-3.5V4a3.5 3.5 0 0 0-7 0v4.5A3.5 3.5 0 0 0 8 12zM5.5 4a2.5 2.5 0 0 1 5 0v4.5a2.5 2.5 0 0 1-5 0V4z"/><path d="M3.5 8a.5.5 0 0 1 .5.5A4 4 0 0 0 12 8.5a.5.5 0 0 1 1 0 5 5 0 0 1-4.5 4.975V15h2a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1h2v-1.525A5 5 0 0 1 3 8.5a.5.5 0 0 1 .5-.5z"/></svg>
+                </button>
             </div>
             <script>
                 const vscode = acquireVsCodeApi();
                 const input = document.getElementById('question-input');
                 const chatBox = document.getElementById('chat-box');
                 const micBtn = document.getElementById('mic-btn');
+                const historyDrawer = document.getElementById('history-drawer');
+                const historyList = document.getElementById('history-list');
 
-                let chatHistory = [];
+                let sessionsArray = [];
+                let currentSessionId = 'sess_' + Date.now();
+                let currentSessionMessages = [];
+
+                // Restore state from VS Code Webview storage
                 const savedState = vscode.getState();
-                if (savedState && Array.isArray(savedState.history)) {
-                    chatHistory = savedState.history;
-                    chatHistory.forEach(item => {
+                if (savedState) {
+                    if (Array.isArray(savedState.sessions)) sessionsArray = savedState.sessions;
+                    if (savedState.activeSessionId) currentSessionId = savedState.activeSessionId;
+                    if (Array.isArray(savedState.currentMessages)) {
+                        currentSessionMessages = savedState.currentMessages;
+                        renderCurrentMessages();
+                    }
+                }
+
+                function saveState() {
+                    vscode.setState({
+                        sessions: sessionsArray,
+                        activeSessionId: currentSessionId,
+                        currentMessages: currentSessionMessages
+                    });
+                }
+
+                function renderCurrentMessages() {
+                    chatBox.innerHTML = '';
+                    currentSessionMessages.forEach(item => {
                         if (item.type === 'user') {
                             chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${item.html}</div>\`;
                         } else if (item.type === 'ai') {
@@ -349,15 +400,96 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                     chatBox.scrollTop = chatBox.scrollHeight;
                 }
 
-                function saveState() {
-                    vscode.setState({ history: chatHistory });
+                function createNewChatSession() {
+                    if (currentSessionMessages.length > 0) {
+                        archiveCurrentSession();
+                    }
+                    currentSessionId = 'sess_' + Date.now();
+                    currentSessionMessages = [];
+                    saveState();
+                    chatBox.innerHTML = '';
+                    vscode.postMessage({ type: 'clearHistory' });
                 }
 
-                function clearHistory() {
+                function archiveCurrentSession() {
+                    if (currentSessionMessages.length === 0) return;
+                    const firstUserMsg = currentSessionMessages.find(m => m.type === 'user');
+                    const title = firstUserMsg ? firstUserMsg.text : 'Conversation ' + new Date().toLocaleTimeString();
+                    
+                    // Replace existing session or push new
+                    const idx = sessionsArray.findIndex(s => s.id === currentSessionId);
+                    const sessData = {
+                        id: currentSessionId,
+                        title: title,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        messages: currentSessionMessages
+                    };
+                    if (idx !== -1) {
+                        sessionsArray[idx] = sessData;
+                    } else {
+                        sessionsArray.unshift(sessData);
+                    }
+                    saveState();
+                }
+
+                function clearCurrentChat() {
                     chatBox.innerHTML = '';
-                    chatHistory = [];
+                    currentSessionMessages = [];
                     saveState();
                     vscode.postMessage({ type: 'clearHistory' });
+                }
+
+                function toggleHistoryDrawer() {
+                    if (historyDrawer.style.display === 'block') {
+                        historyDrawer.style.display = 'none';
+                    } else {
+                        renderHistoryList();
+                        historyDrawer.style.display = 'block';
+                    }
+                }
+
+                function renderHistoryList() {
+                    historyList.innerHTML = '';
+                    if (sessionsArray.length === 0) {
+                        historyList.innerHTML = '<div style="font-size:11px; color:#64748b; padding:6px;">No saved conversations yet.</div>';
+                        return;
+                    }
+                    sessionsArray.forEach(sess => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'history-item';
+                        itemDiv.innerHTML = \`
+                            <div style="display:flex; flex-direction:column;" onclick="loadSession('\${sess.id}')">
+                                <span class="history-title">\${escapeHtml(sess.title)}</span>
+                                <span class="history-time">\${sess.timestamp} • \${sess.messages.length} messages</span>
+                            </div>
+                            <button class="icon-btn icon-btn-danger" style="width:20px; height:20px;" onclick="deleteSession(event, '\${sess.id}')">✕</button>
+                        \`;
+                        historyList.appendChild(itemDiv);
+                    });
+                }
+
+                function loadSession(id) {
+                    archiveCurrentSession();
+                    const target = sessionsArray.find(s => s.id === id);
+                    if (target) {
+                        currentSessionId = target.id;
+                        currentSessionMessages = target.messages || [];
+                        saveState();
+                        renderCurrentMessages();
+                        historyDrawer.style.display = 'none';
+                    }
+                }
+
+                function deleteSession(e, id) {
+                    e.stopPropagation();
+                    sessionsArray = sessionsArray.filter(s => s.id !== id);
+                    saveState();
+                    renderHistoryList();
+                }
+
+                function escapeHtml(str) {
+                    if (!str) return 'Chat';
+                    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 }
 
                 function formatMarkdown(text) {
@@ -445,12 +577,13 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                         const val = input.value;
                         const userHtml = formatMarkdown(val);
                         chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${userHtml}</div>\`;
-                        chatHistory.push({ type: 'user', html: userHtml });
+                        currentSessionMessages.push({ type: 'user', text: val, html: userHtml });
+                        archiveCurrentSession();
                         saveState();
 
                         chatBox.innerHTML += \`<div id="thinking-card" class="message ai-message thinking-message">
                             <div><span class="pulse-icon">⚡</span> <i>Kalpanā AI is reading code & reasoning...</i></div>
-                            <button class="stop-btn" onclick="stopInference()">⛔ Stop</button>
+                            <button class="icon-btn icon-btn-danger" onclick="stopInference()" title="Stop Inference"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/></svg></button>
                         </div>\`;
                         vscode.postMessage({ type: 'askQuestion', value: val });
                         input.value = '';
@@ -491,7 +624,8 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                             activeStreamContainer.innerHTML += data.telemetry;
                             chatBox.scrollTop = chatBox.scrollHeight;
                             
-                            chatHistory.push({ type: 'ai', html: formatMarkdown(currentStreamText) + data.telemetry });
+                            currentSessionMessages.push({ type: 'ai', text: currentStreamText, html: formatMarkdown(currentStreamText) + data.telemetry });
+                            archiveCurrentSession();
                             saveState();
                         }
                         activeStreamContainer = null;
@@ -511,7 +645,8 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                             formatted = formatMarkdown(raw);
                         }
                         chatBox.innerHTML += \`<div class="message ai-message"><b>Kalpana AI:</b><br/>\${formatted}</div>\`;
-                        chatHistory.push({ type: 'ai', html: formatted });
+                        currentSessionMessages.push({ type: 'ai', text: raw, html: formatted });
+                        archiveCurrentSession();
                         saveState();
                         chatBox.scrollTop = chatBox.scrollHeight;
                     }
