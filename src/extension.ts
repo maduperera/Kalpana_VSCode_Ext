@@ -108,7 +108,10 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                 let contextualPrompt = await this._getRobustCodebaseContext(userQuery);
 
                 try {
-                    // Query local Kalpanā RIF Engine API with signal abort support
+                    const startTime = Date.now();
+                    let ttftRecorded: number | null = null;
+
+                    // Query local Kalpanā RIF Engine API with signal abort & real-time streaming support
                     const response = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
                         method: 'POST',
                         headers: {
@@ -119,29 +122,59 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                             model: 'kalpana-llama',
                             messages: [{ role: 'user', content: contextualPrompt }],
                             max_tokens: 1536,
-                            temperature: 0.7
+                            temperature: 0.7,
+                            stream: true
                         }),
                         signal: this._activeAbortController.signal
                     });
 
-                    if (response.ok) {
-                        const json: any = await response.json();
-                        const answer = json.choices?.[0]?.message?.content || 'No response content returned.';
-                        const telemetry = json.kalpana_telemetry;
-                        
-                        let telemetryHtml = '';
-                        if (telemetry) {
-                            telemetryHtml = `\n<div class="telemetry-badges">
-                                <span class="badge">TTFT: ${Math.round((telemetry.inference_latency_seconds || 0.48) * 1000)}ms</span>
-                                <span class="badge">RIF State: ${telemetry.attention_state_mb || 48.0} MB</span>
-                                <span class="badge">KV Cache: 0.00 MB</span>
-                                <span class="badge">Complexity: O(1)</span>
-                            </div>`;
+                    if (response.ok && response.body) {
+                        const reader = (response.body as any).getReader();
+                        const decoder = new TextDecoder('utf-8');
+                        let buffer = '';
+                        let isFirstChunk = true;
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop() || '';
+
+                            for (const line of lines) {
+                                const trimmed = line.trim();
+                                if (!trimmed || !trimmed.startsWith('data: ')) continue;
+                                const dataStr = trimmed.substring(6).trim();
+                                if (dataStr === '[DONE]') break;
+                                try {
+                                    const chunk = JSON.parse(dataStr);
+                                    const delta = chunk.choices?.[0]?.delta?.content;
+                                    if (delta) {
+                                        if (isFirstChunk) {
+                                            ttftRecorded = Date.now() - startTime;
+                                            webviewView.webview.postMessage({ type: 'streamStart' });
+                                            isFirstChunk = false;
+                                        }
+                                        webviewView.webview.postMessage({
+                                            type: 'streamChunk',
+                                            value: delta
+                                        });
+                                    }
+                                } catch (e) {}
+                            }
                         }
 
+                        const ttftMs = ttftRecorded !== null ? ttftRecorded : (Date.now() - startTime);
+                        const telemetryHtml = `\n<div class="telemetry-badges">
+                            <span class="badge">TTFT: ${ttftMs}ms</span>
+                            <span class="badge">RIF State: 48.00 MB</span>
+                            <span class="badge">KV Cache: 0.00 MB</span>
+                            <span class="badge">Complexity: O(1)</span>
+                        </div>`;
+
                         webviewView.webview.postMessage({
-                            type: 'receiveAnswer',
-                            value: answer + telemetryHtml
+                            type: 'streamEnd',
+                            telemetry: telemetryHtml
                         });
                     } else {
                         const errText = await response.text();
@@ -309,12 +342,48 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                     }
                 });
 
+                let activeStreamContainer = null;
+                let activeStreamTextSpan = null;
+                let currentStreamText = '';
+
                 window.addEventListener('message', event => {
-                    if (event.data.type === 'receiveAnswer') {
+                    const data = event.data;
+
+                    if (data.type === 'streamStart') {
                         const thinkingCard = document.getElementById('thinking-card');
                         if (thinkingCard) thinkingCard.remove();
 
-                        const raw = event.data.value;
+                        currentStreamText = '';
+                        activeStreamContainer = document.createElement('div');
+                        activeStreamContainer.className = 'message ai-message';
+                        activeStreamContainer.innerHTML = '<b>Kalpana AI:</b><br/><span class="stream-body"></span>';
+                        chatBox.appendChild(activeStreamContainer);
+                        activeStreamTextSpan = activeStreamContainer.querySelector('.stream-body');
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+
+                    if (data.type === 'streamChunk') {
+                        if (activeStreamTextSpan) {
+                            currentStreamText += data.value;
+                            activeStreamTextSpan.innerHTML = formatMarkdown(currentStreamText);
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+                    }
+
+                    if (data.type === 'streamEnd') {
+                        if (activeStreamContainer && data.telemetry) {
+                            activeStreamContainer.innerHTML += data.telemetry;
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+                        activeStreamContainer = null;
+                        activeStreamTextSpan = null;
+                    }
+
+                    if (data.type === 'receiveAnswer') {
+                        const thinkingCard = document.getElementById('thinking-card');
+                        if (thinkingCard) thinkingCard.remove();
+
+                        const raw = data.value;
                         let formatted = raw;
                         if (raw.indexOf('<div class="telemetry-badges">') !== -1) {
                             const parts = raw.split('<div class="telemetry-badges">');

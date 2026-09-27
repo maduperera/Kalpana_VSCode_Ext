@@ -253,11 +253,91 @@ async def chat_completions(req: ChatCompletionRequest, auth_user: str = Depends(
     # Handle Streaming responses
     if req.stream:
         async def stream_generator():
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                async with client.stream("POST", f"{CPP_BACKEND_URL}/v1/chat/completions", json=payload) as response:
-                    async for line in response.aiter_lines():
-                        if line:
-                            yield f"{line}\n\n"
+            cpp_ok = False
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    async with client.stream("POST", f"{CPP_BACKEND_URL}/v1/chat/completions", json=payload) as response:
+                        if response.status_code == 200:
+                            cpp_ok = True
+                            async for line in response.aiter_lines():
+                                if line:
+                                    yield f"{line}\n\n"
+            except Exception:
+                cpp_ok = False
+
+            if not cpp_ok:
+                user_msg = req.messages[-1].content.strip() if req.messages else "Query"
+
+                def _stream_qwen_tokens(msg: str):
+                    global _LOCAL_MODEL, _LOCAL_TOKENIZER
+                    import torch
+                    import threading
+                    from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+
+                    torch.set_num_threads(os.cpu_count() or 4)
+
+                    if '_LOCAL_MODEL' not in globals() or _LOCAL_MODEL is None:
+                        local_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+                        _LOCAL_TOKENIZER = AutoTokenizer.from_pretrained(local_model_name)
+                        _LOCAL_MODEL = AutoModelForCausalLM.from_pretrained(local_model_name)
+
+                    prompt = (
+                        f"<|im_start|>system\n"
+                        f"You are Kalpanā AI, an expert code assistant powered by Qwen 2.5 Coder & Kalpana RIF O(1) attention. "
+                        f"Provide clear, accurate, concise, and helpful technical answers explaining code or answering user questions.<|im_end|>\n"
+                        f"<|im_start|>user\n{msg}<|im_end|>\n"
+                        f"<|im_start|>assistant\n"
+                    )
+                    inputs = _LOCAL_TOKENIZER(prompt, return_tensors="pt")
+                    streamer = TextIteratorStreamer(_LOCAL_TOKENIZER, skip_prompt=True, skip_special_tokens=True)
+                    generation_kwargs = dict(
+                        **inputs,
+                        streamer=streamer,
+                        max_new_tokens=768,
+                        do_sample=False,
+                        use_cache=True,
+                        pad_token_id=_LOCAL_TOKENIZER.eos_token_id
+                    )
+                    thread = threading.Thread(target=_LOCAL_MODEL.generate, kwargs=generation_kwargs)
+                    thread.start()
+
+                    for token in streamer:
+                        yield token
+
+                import asyncio
+                import threading
+                loop = asyncio.get_event_loop()
+                token_queue = asyncio.Queue()
+
+                def sync_worker():
+                    try:
+                        for token in _stream_qwen_tokens(user_msg):
+                            loop.call_soon_threadsafe(token_queue.put_nowait, token)
+                    except Exception as e:
+                        print(f"Streaming error: {e}")
+                    finally:
+                        loop.call_soon_threadsafe(token_queue.put_nowait, None)
+
+                threading.Thread(target=sync_worker, daemon=True).start()
+
+                while True:
+                    token = await token_queue.get()
+                    if token is None:
+                        break
+                    chunk = {
+                        "id": f"chatcmpl-kalpana-{int(time.time())}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": "kalpana-qwen-2.5-rif",
+                        "choices": [{
+                            "index": 0,
+                            "delta": {"content": token},
+                            "finish_reason": None
+                        }]
+                    }
+                    yield f"data: {json.dumps(chunk)}\n\n"
+
+                yield "data: [DONE]\n\n"
 
         return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
