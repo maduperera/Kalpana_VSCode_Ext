@@ -87,6 +87,26 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
         webviewView.webview.onDidReceiveMessage(async (data: any) => {
             if (data.type === 'askQuestion') {
                 const userQuery = data.value;
+
+                // 1. Gather context from VS Code Active Text Editor
+                let contextualPrompt = userQuery;
+                const activeEditor = vscode.window.activeTextEditor;
+
+                if (activeEditor) {
+                    const doc = activeEditor.document;
+                    const fileName = path.basename(doc.fileName);
+                    const selectedText = doc.getText(activeEditor.selection);
+                    const fullText = doc.getText();
+
+                    if (selectedText && selectedText.trim().length > 0) {
+                        contextualPrompt = `Selected Code Snippet from file '${fileName}':\n\`\`\`\n${selectedText}\n\`\`\`\n\nUser Question: ${userQuery}`;
+                    } else if (fullText && fullText.trim().length > 0) {
+                        // Truncate extremely huge single files if over 15k chars for prompt safety
+                        const promptText = fullText.length > 15000 ? fullText.substring(0, 15000) + "\n...[truncated]" : fullText;
+                        contextualPrompt = `Active Open File in Editor: '${fileName}'\nCode Content:\n\`\`\`\n${promptText}\n\`\`\`\n\nUser Question: ${userQuery}`;
+                    }
+                }
+
                 try {
                     // Query local Kalpanā RIF Engine API
                     const response = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
@@ -97,7 +117,7 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                         },
                         body: JSON.stringify({
                             model: 'kalpana-llama',
-                            messages: [{ role: 'user', content: userQuery }],
+                            messages: [{ role: 'user', content: contextualPrompt }],
                             max_tokens: 512,
                             temperature: 0.7
                         })
