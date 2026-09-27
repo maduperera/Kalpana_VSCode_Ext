@@ -78,6 +78,8 @@ function startEngines(context: vscode.ExtensionContext) {
 }
 
 class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
+    private _activeAbortController: AbortController | undefined;
+
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
     public resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext) {
@@ -85,30 +87,28 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
         webviewView.webview.html = this._getHtmlForWebview();
         
         webviewView.webview.onDidReceiveMessage(async (data: any) => {
+            if (data.type === 'stopInference') {
+                if (this._activeAbortController) {
+                    this._activeAbortController.abort();
+                    this._activeAbortController = undefined;
+                }
+                return;
+            }
+
             if (data.type === 'askQuestion') {
                 const userQuery = data.value;
 
-                // 1. Gather context from VS Code Active Text Editor
-                let contextualPrompt = userQuery;
-                const activeEditor = vscode.window.activeTextEditor;
-
-                if (activeEditor) {
-                    const doc = activeEditor.document;
-                    const fileName = path.basename(doc.fileName);
-                    const selectedText = doc.getText(activeEditor.selection);
-                    const fullText = doc.getText();
-
-                    if (selectedText && selectedText.trim().length > 0) {
-                        contextualPrompt = `Selected Code Snippet from file '${fileName}':\n\`\`\`\n${selectedText}\n\`\`\`\n\nUser Question: ${userQuery}`;
-                    } else if (fullText && fullText.trim().length > 0) {
-                        // Truncate extremely huge single files if over 15k chars for prompt safety
-                        const promptText = fullText.length > 15000 ? fullText.substring(0, 15000) + "\n...[truncated]" : fullText;
-                        contextualPrompt = `Active Open File in Editor: '${fileName}'\nCode Content:\n\`\`\`\n${promptText}\n\`\`\`\n\nUser Question: ${userQuery}`;
-                    }
+                // Create fresh AbortController for this request
+                if (this._activeAbortController) {
+                    this._activeAbortController.abort();
                 }
+                this._activeAbortController = new AbortController();
+
+                // Robust Codebase Context Retrieval
+                let contextualPrompt = await this._getRobustCodebaseContext(userQuery);
 
                 try {
-                    // Query local Kalpanā RIF Engine API
+                    // Query local Kalpanā RIF Engine API with signal abort support
                     const response = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
                         method: 'POST',
                         headers: {
@@ -120,7 +120,8 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                             messages: [{ role: 'user', content: contextualPrompt }],
                             max_tokens: 1536,
                             temperature: 0.7
-                        })
+                        }),
+                        signal: this._activeAbortController.signal
                     });
 
                     if (response.ok) {
@@ -150,13 +151,88 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                         });
                     }
                 } catch (err: any) {
-                    webviewView.webview.postMessage({
-                        type: 'receiveAnswer',
-                        value: `⚡ <b>Kalpana AI (Vijñāna AI)</b>: Received query for Qwen 2.5 Coder + RIF.\n\n<i>${userQuery}</i>\n\nLocal RIF Engine is running at http://127.0.0.1:8000.\n<div class="telemetry-badges"><span class="badge">RIF State: 48.00 MB</span><span class="badge">KV Cache: 0.00 MB</span><span class="badge">Complexity: O(1) Constant</span></div>`
-                    });
+                    if (err.name === 'AbortError') {
+                        webviewView.webview.postMessage({
+                            type: 'receiveAnswer',
+                            value: `⛔ <b>Inference Stopped</b>: Request cancelled by user.`
+                        });
+                    } else {
+                        webviewView.webview.postMessage({
+                            type: 'receiveAnswer',
+                            value: `⚡ <b>Kalpana AI (Vijñāna AI)</b>: Received query for Qwen 2.5 Coder + RIF.\n\n<i>${userQuery}</i>\n\nLocal RIF Engine is running at http://127.0.0.1:8000.\n<div class="telemetry-badges"><span class="badge">RIF State: 48.00 MB</span><span class="badge">KV Cache: 0.00 MB</span><span class="badge">Complexity: O(1) Constant</span></div>`
+                        });
+                    }
+                } finally {
+                    this._activeAbortController = undefined;
                 }
             }
         });
+    }
+
+    private async _getRobustCodebaseContext(userQuery: string): Promise<string> {
+        let codeContent = "";
+        let fileName = "";
+
+        // A. Active text editor document
+        if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
+            const doc = vscode.window.activeTextEditor.document;
+            const sel = doc.getText(vscode.window.activeTextEditor.selection);
+            if (sel && sel.trim().length > 0) {
+                return `Selected Code Snippet from file '${path.basename(doc.fileName)}':\n\`\`\`\n${sel}\n\`\`\`\n\nUser Question: ${userQuery}`;
+            }
+            codeContent = doc.getText();
+            fileName = path.basename(doc.fileName);
+        }
+
+        // B. Visible text editors (if active editor lost focus to webview input box)
+        if (!codeContent && vscode.window.visibleTextEditors.length > 0) {
+            for (const ed of vscode.window.visibleTextEditors) {
+                if (ed.document && ed.document.getText().trim().length > 0) {
+                    codeContent = ed.document.getText();
+                    fileName = path.basename(ed.document.fileName);
+                    break;
+                }
+            }
+        }
+
+        // C. Open workspace text documents
+        if (!codeContent && vscode.workspace.textDocuments.length > 0) {
+            for (const doc of vscode.workspace.textDocuments) {
+                if (!doc.isUntitled && doc.getText().trim().length > 0) {
+                    codeContent = doc.getText();
+                    fileName = path.basename(doc.fileName);
+                    break;
+                }
+            }
+        }
+
+        // D. Workspace search if filename is referenced in user prompt
+        if (!codeContent) {
+            try {
+                const files = await vscode.workspace.findFiles('**/*.{ino,py,ts,js,cpp,c,h,java,cs}', '**/node_modules/**', 10);
+                if (files.length > 0) {
+                    let target = files[0];
+                    const queryLower = userQuery.toLowerCase();
+                    for (const f of files) {
+                        const baseName = path.basename(f.fsPath).toLowerCase();
+                        if (queryLower.includes(baseName) || queryLower.includes(baseName.split('.')[0])) {
+                            target = f;
+                            break;
+                        }
+                    }
+                    const doc = await vscode.workspace.openTextDocument(target);
+                    codeContent = doc.getText();
+                    fileName = path.basename(target.fsPath);
+                }
+            } catch (e) {}
+        }
+
+        if (codeContent && codeContent.trim().length > 0) {
+            const promptText = codeContent.length > 15000 ? codeContent.substring(0, 15000) + "\n...[truncated]" : codeContent;
+            return `Active Workspace Code File: '${fileName}'\nCode Content:\n\`\`\`\n${promptText}\n\`\`\`\n\nUser Question: ${userQuery}`;
+        }
+
+        return userQuery;
     }
 
     private _getHtmlForWebview() {
@@ -169,9 +245,11 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                 .message { margin-bottom: 14px; font-size: 13px; line-height: 1.6; word-wrap: break-word; }
                 .user-message { color: var(--vscode-terminal-ansiCyan); border-bottom: 1px dashed var(--vscode-panel-border); padding-bottom: 8px; }
                 .ai-message { color: var(--vscode-foreground); background: rgba(255,255,255,0.04); padding: 10px 12px; border-radius: 8px; border-left: 3px solid #34d399; }
-                .thinking-message { border-left: 3px solid #38bdf8; color: #94a3b8; background: rgba(56, 189, 248, 0.05); }
+                .thinking-message { border-left: 3px solid #38bdf8; color: #94a3b8; background: rgba(56, 189, 248, 0.05); display: flex; align-items: center; justify-content: space-between; }
                 .pulse-icon { display: inline-block; animation: pulse 1.2s infinite ease-in-out; color: #38bdf8; font-weight: bold; }
                 @keyframes pulse { 0% { opacity: 0.3; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.3; transform: scale(0.9); } }
+                .stop-btn { background: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+                .stop-btn:hover { background: #dc2626; }
                 input { width: 100%; padding: 10px 12px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 6px; box-sizing: border-box; }
                 input:focus { outline: 1px solid var(--vscode-focusBorder); }
                 .telemetry-badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -207,11 +285,24 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                     return html;
                 }
 
+                function stopInference() {
+                    const thinkingCard = document.getElementById('thinking-card');
+                    if (thinkingCard) {
+                        thinkingCard.innerHTML = '<span>⛔ <i>Inference stopped.</i></span>';
+                        thinkingCard.className = 'message ai-message';
+                        thinkingCard.style.borderLeft = '3px solid #ef4444';
+                    }
+                    vscode.postMessage({ type: 'stopInference' });
+                }
+
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter' && input.value.trim() !== '') {
                         const val = input.value;
                         chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${formatMarkdown(val)}</div>\`;
-                        chatBox.innerHTML += \`<div id="thinking-card" class="message ai-message thinking-message"><span class="pulse-icon">⚡</span> <i>Kalpanā AI is reading code & reasoning...</i></div>\`;
+                        chatBox.innerHTML += \`<div id="thinking-card" class="message ai-message thinking-message">
+                            <div><span class="pulse-icon">⚡</span> <i>Kalpanā AI is reading code & reasoning...</i></div>
+                            <button class="stop-btn" onclick="stopInference()">⛔ Stop</button>
+                        </div>\`;
                         vscode.postMessage({ type: 'askQuestion', value: val });
                         input.value = '';
                         chatBox.scrollTop = chatBox.scrollHeight;
