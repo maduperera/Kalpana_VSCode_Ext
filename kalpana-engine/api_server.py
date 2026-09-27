@@ -125,6 +125,22 @@ class RIFPhaseState:
 
 rif_engine = RIFPhaseState(bands=BANDS)
 
+# Background Model Preloader Thread to eliminate cold start latency
+def _preload_qwen_model():
+    try:
+        global _LOCAL_MODEL, _LOCAL_TOKENIZER
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        local_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+        _LOCAL_TOKENIZER = AutoTokenizer.from_pretrained(local_model_name)
+        _LOCAL_MODEL = AutoModelForCausalLM.from_pretrained(local_model_name, dtype=torch.float32)
+        print("✅ Local Qwen 2.5 neural model preloaded successfully into RAM.")
+    except Exception as e:
+        print(f"Background model preloader status: {e}")
+
+import threading
+threading.Thread(target=_preload_qwen_model, daemon=True).start()
+
 # Pydantic Schemas
 class ChatMessage(BaseModel):
     role: str = Field(..., examples=["user"])
@@ -300,10 +316,10 @@ async def chat_completions(req: ChatCompletionRequest, auth_user: str = Depends(
             prompt = f"<|im_start|>system\nYou are Kalpana AI, an expert code assistant powered by Qwen 2.5 Coder & Kalpana RIF O(1) attention.<|im_end|>\n<|im_start|>user\n{msg}<|im_end|>\n<|im_start|>assistant\n"
             inputs = _LOCAL_TOKENIZER(prompt, return_tensors="pt")
 
-            # Generate real neural LLM output tokens
+            # Generate real neural LLM output tokens (768 token limit to prevent premature cutoff)
             out = _LOCAL_MODEL.generate(
                 **inputs,
-                max_new_tokens=180,
+                max_new_tokens=768,
                 do_sample=False,
                 use_cache=True,
                 pad_token_id=_LOCAL_TOKENIZER.eos_token_id

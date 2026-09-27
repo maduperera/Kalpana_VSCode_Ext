@@ -118,7 +118,7 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                         body: JSON.stringify({
                             model: 'kalpana-llama',
                             messages: [{ role: 'user', content: contextualPrompt }],
-                            max_tokens: 512,
+                            max_tokens: 1536,
                             temperature: 0.7
                         })
                     });
@@ -150,7 +150,6 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                         });
                     }
                 } catch (err: any) {
-                    // Fallback response if local gateway is initializing
                     webviewView.webview.postMessage({
                         type: 'receiveAnswer',
                         value: `⚡ <b>Kalpana AI (Vijñāna AI)</b>: Received query for Qwen 2.5 Coder + RIF.\n\n<i>${userQuery}</i>\n\nLocal RIF Engine is running at http://127.0.0.1:8000.\n<div class="telemetry-badges"><span class="badge">RIF State: 48.00 MB</span><span class="badge">KV Cache: 0.00 MB</span><span class="badge">Complexity: O(1) Constant</span></div>`
@@ -170,6 +169,9 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                 .message { margin-bottom: 14px; font-size: 13px; line-height: 1.6; word-wrap: break-word; }
                 .user-message { color: var(--vscode-terminal-ansiCyan); border-bottom: 1px dashed var(--vscode-panel-border); padding-bottom: 8px; }
                 .ai-message { color: var(--vscode-foreground); background: rgba(255,255,255,0.04); padding: 10px 12px; border-radius: 8px; border-left: 3px solid #34d399; }
+                .thinking-message { border-left: 3px solid #38bdf8; color: #94a3b8; background: rgba(56, 189, 248, 0.05); }
+                .pulse-icon { display: inline-block; animation: pulse 1.2s infinite ease-in-out; color: #38bdf8; font-weight: bold; }
+                @keyframes pulse { 0% { opacity: 0.3; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.3; transform: scale(0.9); } }
                 input { width: 100%; padding: 10px 12px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 6px; box-sizing: border-box; }
                 input:focus { outline: 1px solid var(--vscode-focusBorder); }
                 .telemetry-badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -209,6 +211,7 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
                     if (e.key === 'Enter' && input.value.trim() !== '') {
                         const val = input.value;
                         chatBox.innerHTML += \`<div class="message user-message"><b>You:</b> \${formatMarkdown(val)}</div>\`;
+                        chatBox.innerHTML += \`<div id="thinking-card" class="message ai-message thinking-message"><span class="pulse-icon">⚡</span> <i>Kalpanā AI is reading code & reasoning...</i></div>\`;
                         vscode.postMessage({ type: 'askQuestion', value: val });
                         input.value = '';
                         chatBox.scrollTop = chatBox.scrollHeight;
@@ -217,6 +220,9 @@ class KalpanaChatViewProvider implements vscode.WebviewViewProvider {
 
                 window.addEventListener('message', event => {
                     if (event.data.type === 'receiveAnswer') {
+                        const thinkingCard = document.getElementById('thinking-card');
+                        if (thinkingCard) thinkingCard.remove();
+
                         const raw = event.data.value;
                         let formatted = raw;
                         if (raw.indexOf('<div class="telemetry-badges">') !== -1) {
