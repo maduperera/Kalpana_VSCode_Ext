@@ -22,7 +22,7 @@
 Standard state-of-the-art models like **Qwen 2.5 Coder** are trained on a 128K context window. However, running standard long-context inference locally causes memory consumption to balloon linearly **O(N)** due to dynamic KV cache growth—consuming 10+ GB of VRAM and crashing local hardware.
 
 **Kalpanā AI supercharges Qwen 2.5 Coder with Kalpanā Resonant Interference Field (RIF) technology**:
-- Replaces dynamic Key-Value token memory with a continuous **fixed 48.00 MB Fourier phase attention state**.
+- Replaces dynamic Key-Value token memory with a continuous **fixed 48.00 MB Fourier attention state**.
 - Extends Qwen 2.5 Coder beyond its base window into **unlimited token context capacity**.
 - Operates at a **strict O(1) constant memory footprint** on standard laptops without memory slowdowns or out-of-memory (OOM) crashes.
 
@@ -58,7 +58,7 @@ Standard state-of-the-art models like **Qwen 2.5 Coder** are trained on a 128K c
 ### Step 4: Inspect Real-Time Telemetry
 Each response from Kalpanā AI includes live telemetry tags:
 - ⏱️ **Time to First Token (TTFT)**: Initial latency (~480ms).
-- 🧠 **RIF Phase State**: Locked at **48.00 MB** (constant memory footprint).
+- 🧠 **RIF State**: Locked at **48.00 MB** (constant memory footprint).
 - ⚡ **Dynamic KV Cache**: **0.00 MB** (zero RAM growth).
 - 📉 **Complexity**: **O(1) Constant**.
 
